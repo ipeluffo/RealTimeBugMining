@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Twitter real-time bug reporting</title>
+        <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+        <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+
+        <style>
+            .tweets-table td {
+                cursor: pointer;
+            }
+        </style>
+<!--
+        <link rel="stylesheet" href="/css/bootstrap.min.css">
+        <script src="/js/jquery-1.11.0.min.js"></script>
+        <script src="/js/bootstrap.min.js"></script>
+-->
+
+        <script>
+            var socket = null;
+
+            $(function (){
+                $("#startStreaming").click(function (event){
+                    if (socket) {
+                        $("#startStreaming").attr('disabled','disabled');
+                        $("#stopStreaming").removeAttr('disabled');
+
+                        socket.emit("startStreaming");
+                    }
+                });
+
+                $("#stopStreaming").click(function (event){
+                    if (socket) {
+                        $("#stopStreaming").attr('disabled','disabled');
+                        $("#startStreaming").removeAttr('disabled');
+
+                        socket.emit("stopStreaming");
+                    }
+                });
+            });
+
+            $(function (){
+                socket = io.connect(window.location.origin);
+                socket.on('superVector', function (data) {
+                    $("#normaSuperVector").text(data.normaSuperVector);
+                    var $superVectorTableBody = $('#superVectorTable tbody');
+                    for (var keyword in data.superVector){
+                        var keywordRow = $('<tr>')
+                                            .append($('<td>').text(keyword))
+                                            .append($('<td>').text(data.superVector[keyword]));
+                        $superVectorTableBody.append(keywordRow);
+                    }
+                });
+
+                socket.on('newTweet', function (data) {
+                    var $tweetsTableBody = $('#tweetsTable tbody');
+                    var $tweetRow = $('<tr>').attr('onclick', 'tweetRowClick(this);')
+                                                .attr('data-user', data.tweet.user.screen_name)
+                                                .attr('data-tweet', data.tweet.text)
+                                                .attr('data-createdat', data.tweet.created_at)
+                                                .attr('data-userprofileimageurl', data.tweet.user.profile_image_url)
+                                                .attr('data-similarity', data.similarity)
+                                                .attr('data-tweetidstr', data.tweet.id_str);
+
+                    $tweetRow.append($('<td>').text(data.tweet.text.substring(0,50) + ' ...'));
+                    $tweetRow.append($('<td>').text(data.similarity));
+                    $tweetsTableBody.append($tweetRow);
+                });
+            });
+
+            var tweetRowClick = function (row) {
+                var $row = $(row);
+                $('#tweetPanelHeading').html('<img src="'+$row.data('userprofileimageurl')+'" />'+$row.data('user'));
+                $('#tweetPanelBody p').text($row.data('tweet'));
+                $('#tweetPanelTableCreatedAt').text($row.data('createdat'));
+                $('#tweetPanelTableSimilarity').text($row.data('similarity'));
+//                $('#tweetPanelTableTweetUrl').html('<a href="http://www.twitter/'+$row.data('user')+'/statuses/'+$row.data('tweetidstr'));
+                $('#tweetPanelTableTweetUrl').html('<a target="_blank" href="http://www.twitter.com/'+$row.data('user')+'/statuses/'+$row.data('tweetidstr')+'">Tweet URL</a>');
+            };
+        </script>
+    </head>
+
+    <body>
+        <nav class="navbar navbar-default" role="navigation">
+            <div class="container-fluid">
+                <!-- Brand and toggle get grouped for better mobile display -->
+                <div class="navbar-header">
+                  <a class="navbar-brand" href="#">Twitter real-time bug reporting</a>
+                </div>
+            </div><!-- /.container-fluid -->
+        </nav>
+        <div class="container">
+            <div class="row" style="margin-bottom: 20px">
+                <div class="col-md-12">
+                    <!-- Nav tabs -->
+                    <ul class="nav nav-pills">
+                      <li class="active"><a href="#home" data-toggle="pill">Tweets</a></li>
+                      <li><a href="#profile" data-toggle="pill">SuperVector</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <!-- Tab panes -->
+                    <div class="tab-content">
+                        <div class="tab-pane active" id="home">
+                            <div class="row">
+                                <div class="col-md-12" style="margin-bottom:20px;">
+                                    <button id="startStreaming" type="button" class="btn btn-success">Start Streaming</button>
+                                    <button id="stopStreaming" type="button" class="btn btn-danger" disabled="disabled">Stop Streaming</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6" style="overflow-y: scroll; height:500px;">
+                                    <table id="tweetsTable" class="table table-bordered table-hover table-condensed tweets-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Tweet</th>
+                                                <th>Simil</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div id="tweetPanel" class="panel panel-primary">
+                                        <!-- Default panel contents -->
+                                        <div id="tweetPanelHeading" class="panel-heading">Tweet</div>
+                                        <div id="tweetPanelBody" class="panel-body">
+                                            <p></p>
+                                        </div>
+
+                                        <!-- Table -->
+                                        <table id="tweetPanelTable" class="table table-bordered">
+                                            <tbody>
+                                                <tr>
+                                                    <td>Created at</td>
+                                                    <td id="tweetPanelTableCreatedAt"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Similarity</td>
+                                                    <td id="tweetPanelTableSimilarity"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>Tweet URL</td>
+                                                    <td id="tweetPanelTableTweetUrl"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane" id="profile">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <p>
+                                        Norma: <span style="font-weight : bold;" id="normaSuperVector"></span>
+                                    </p>
+
+                                    <p>
+                                        Keywords:
+                                    </p>
+                                    <table id="superVectorTable" class="table table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Keyword</th>
+                                                <th>Frequency</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "BugLiveMining",
+  "version": "0.0.1",
+  "description": "Node.js application that connects to Twitter Streaming API to find applications' bugs reported by people",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "twitter",
+    "nodejs",
+    "webmining",
+    "mining",
+    "bug",
+    "applications",
+    "real-time"
+  ],
+  "author": "Ignacio Peluffo",
+  "license": "MIT",
+  "dependencies": {
+    "util": "^0.10.3",
+    "twitter": "^0.2.9",
+    "express": "^4.1.1",
+    "socket.io": "^0.9.16",
+    "path": "^0.4.9"
+  }
+}
