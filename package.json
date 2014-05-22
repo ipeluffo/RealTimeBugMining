@@ -1,5 +1,5 @@
 {
-  "name": "BugLiveMining",
+  "name": "RealTimeBugMining",
   "version": "0.0.1",
   "description": "Node.js application that connects to Twitter Streaming API to find applications' bugs reported by people",
   "main": "app.js",
@@ -22,6 +22,7 @@
     "twitter": "^0.2.9",
     "express": "^4.1.1",
     "socket.io": "^0.9.16",
-    "path": "^0.4.9"
+    "path": "^0.4.9",
+    "mongoskin": "^1.4.4"
   }
 }

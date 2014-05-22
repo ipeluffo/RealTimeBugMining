@@ -1,14 +1,68 @@
 /*jslint node:true */
 'use strict';
 
+/* ******************************************************************************** */
+// Correct usage check
+if (process.argv.length < 3){
+    console.log("\n=== Real Time Bug Mining ===\n");
+    console.log("usage: node app.js thresholdSimilarity\n");
+    console.log("  thresholdSimilarity\tThreshold used to filter tweets found according the similarity with the super vector\n");
+    process.exit(1);
+}
+var threshold = process.argv[2];
+
+/* ******************************************************************************** */
+
+var vectorDao = require('./lib/vectorDao'),
+    vectorsUtils = require('./lib/vectorUtils'),
+    fs = require('fs');
+
+var superVector,
+    searchVector,
+    superVectorNorma;
+
+vectorDao.getSuperVector(function(err, vector){
+    if (err){
+        console.log('ERROR: failed to connect to MongoDB database');
+        process.exit(1);
+    }
+
+    if (vector) {
+        superVector = vector.vectorValue;
+    }else{
+        // Get the default super vector from file and store in mongo db database
+        var superVectorFile = fs.readFileSync(__dirname+'/superVector.json');
+        superVector = JSON.parse(superVectorFile.toString());
+        vectorDao.updateSuperVector(superVector);
+    }
+    superVectorNorma = vectorsUtils.vectorModulus(superVector);
+});
+
+vectorDao.getSearchVector(function(err, vector){
+    if (err){
+        console.log('ERROR: failed to connect to MongoDB database');
+        process.exit(1);
+    }
+
+    if (vector) {
+        searchVector = vector.vectorValue;
+    }else{
+        // Get the default search vector from file and store in mongo db database
+        var searchVectorFile = fs.readFileSync(__dirname+'/searchVector.json');
+        searchVector = JSON.parse(searchVectorFile.toString());
+        vectorDao.updateSearchVector(searchVector);
+    }
+}); 
+
+/* ******************************************************************************** */
+
 // Module dependencies
 var util = require('util'),
     twitter = require('twitter'),
     express = require('express'),
     http = require('http'),
     socketIO = require('socket.io'),
-    path = require('path'),
-    fs = require('fs');
+    path = require('path');
 
 /* ******************************************************************************** */
 
@@ -34,7 +88,7 @@ app.route('/').get(function (request, response, next) {
     response.sendfile(__dirname + "/index.html");
 });
 
-/* ******************************************************************************************** */
+/* ******************************************************************************** */
 
 var stopWords = {};
 
@@ -48,53 +102,24 @@ for (var stopWordsFileIndex in stopWordsFiles){
     });
 }
 
-var superVector = {"software" : 293, "bugs" : 142, "web":71,"bug":207,"security":211,"openssl":72,"heartbleed":144,"error":63,"nasa":45,"problem":50,"errors":38,"data":89,"number":50,"crash":45,"report":36,"problems":56,"control":47,"failure":40,"news":39,"windows":71,"risk":63,"digest":46,"risks":74,"microsoft":51,"code":75,"time":49,"network":43,"space":53,"article":36,"program":56,"systems":85,"management":49,"services":38,"internet":40,"access":37,"site":44,"vulnerability":38,"retrieved":86},
-    superVectorNorma = vectorNorm(superVector);
-
-var threshold = process.argv[2];
-
 /* ******************************************************************************** */
 
-function vectorNorm(vector) {
-    var sum = 0,
-        key;
-
-    for (key in vector){
-        sum += Math.pow(vector[key] , 2);
-    }
-
-    return Math.sqrt(sum);
-}
-
-function obtenerVectorTF(tweet){
+function buildVectorTF (tweet) {
     var words = tweet.text.split(/\s+/),
         vectorTF = {},
         word = '',
         wordIndex;
 
-    for (wordIndex in words){
+    for (wordIndex in words) {
         word = words[wordIndex].toLowerCase().replace(/[^A-Za-z@#]/gi, '');
 
-        if ( !stopWords[word] ) {
+        if (!stopWords[word]) {
             vectorTF[word] = vectorTF[word] ? vectorTF[word]+1 : 1;
         }
     }
 
     return vectorTF;
-}
-
-function sim(vectorA, vectorB, normVectorA, normVectorB){
-    var sum = 0,
-        keyword;
-
-    for (keyword in vectorA){
-        if (vectorB[keyword]){
-            sum += vectorA[keyword] * vectorB[keyword];
-        }
-    }
-
-    return (sum / (normVectorA * normVectorB));
-}
+};
 
 /* ******************************************************************************** */
 
@@ -109,24 +134,21 @@ var twit = new twitter({
 var twitterStream = null;
 
 function initializeTwitterStream(socket){
-    //twit.stream('statuses/filter', {track : 'bug,vulnerability', language : 'en,es' }, function (stream) {
-    //twit.stream('statuses/filter', {track : 'bug,vulnerability,application bug, application vulnerability, works bad, app broken, app bad', language : 'en' }, function (stream) {
-    //twit.stream('statuses/filter', {track : 'facebook bug, facebook problem, facebook work bad, facebook works bad', language : 'en' }, function (stream) {
-    twit.stream('statuses/filter', {track : ["software", "bugs", "web", "bug", "security", "openssl", "heartbleed", "error", "nasa", "problem", "errors", "data", "number", "crash", "report", "problems", "control", "failure", "news", "windows", "risk", "digest", "risks", "microsoft", "code", "time", "network", "space", "article", "program", "systems", "management", "services", "internet", "access", "site", "vulnerability", "retrieved"], language : 'en' }, function (stream) {
-
+    twit.stream('statuses/filter', {track : Object.keys(searchVector), language : 'en' }, function (stream) {
+    
         twitterStream = stream;
 
         twitterStream.on('data', function (data) {
             if (data.text !== undefined) {
-                var tweetVectorTF = obtenerVectorTF(data),
-                    normaTweet = vectorNorm(tweetVectorTF),
-                    similarity = sim(superVector, tweetVectorTF, superVectorNorma, normaTweet);
+                var tweetVectorTF = buildVectorTF(data),
+                    tweetVectorMod = vectorsUtils.vectorModulus(tweetVectorTF),
+                    similarity = vectorsUtils.vectorsSimilarity(superVector, tweetVectorTF, superVectorNorma, tweetVectorMod);
 
                 if (similarity > threshold){
                     io.sockets.emit('newTweet', { 'tweet' : data, 'similarity' : similarity });
 //                    socket.emit('newTweet', data);
-    //                console.log(util.inspect(data, { colors : true }));
-                    console.log("\nTweet: " + data.text + "\nVector: " + JSON.stringify(tweetVectorTF) + "\nNorma Vector: " + normaTweet + "\nNorma SV: " + superVectorNorma + "\nSimilarity = " + similarity);
+//                    console.log(util.inspect(data, { colors : true }));
+                    console.log("\nTweet: " + data.text + "\nVector: " + JSON.stringify(tweetVectorTF) + "\nNorma Vector: " + tweetVectorMod + "\nNorma SV: " + superVectorNorma + "\nSimilarity = " + similarity);
                 }
             }
         });
