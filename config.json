@@ -1,0 +1,10 @@
+{
+    "mongoDbUrl" : "localhost",
+    "mongoDbPort" : "27017",
+    "mongoDbDatabase" : "realTimeBugMining",
+    "mongoDbUser" : "",
+    "mongoDbPass" : "",
+    "originalWordWeight" : 0.98,
+    "approvedWordWeight" : 0.8,
+    "rejectedWordWeight" : 0.1
+}

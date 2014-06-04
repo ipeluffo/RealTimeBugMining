@@ -7,69 +7,12 @@
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
         <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
         <script src="/socket.io/socket.io.js"></script>
+        <script src="/js/frontEnd.js"></script>
 <!--
         <link rel="stylesheet" href="/css/bootstrap.min.css">
         <script src="/js/jquery-1.11.0.min.js"></script>
         <script src="/js/bootstrap.min.js"></script>
 -->
-
-        <script>
-            var socket = null;
-
-            $(function (){
-                $("#startStreaming").click(function (event){
-                    if (socket) {
-                        $("#startStreaming").attr('disabled','disabled');
-                        $("#stopStreaming").removeAttr('disabled');
-
-                        socket.emit("startStreaming");
-                    }
-                });
-
-                $("#stopStreaming").click(function (event){
-                    if (socket) {
-                        $("#stopStreaming").attr('disabled','disabled');
-                        $("#startStreaming").removeAttr('disabled');
-
-                        socket.emit("stopStreaming");
-                    }
-                });
-            });
-
-            $(function (){
-                socket = io.connect(window.location.origin);
-                socket.on('superVector', function (data) {
-                    $("#normaSuperVector").text(data.normaSuperVector);
-                    var $superVectorTableBody = $('#superVectorTable tbody');
-                    for (var keyword in data.superVector){
-                        var keywordRow = $('<tr>')
-                                            .append($('<td>').text(keyword))
-                                            .append($('<td>').text(data.superVector[keyword]));
-                        $superVectorTableBody.append(keywordRow);
-                    }
-                });
-
-                socket.on('newTweet', function (data) {
-                    var $tweetsTableBody = $('#tweetsTable tbody');
-                    var $tweetRow = $('<tr>').attr('data-tweetidstr', data.tweet.id_str);
-
-                    var $usrImg = $('<a>').attr('target','_blank').attr('href','http://www.twitter.com/'+data.tweet.user.screen_name).append($('<img>').attr('src',data.tweet.user.profile_image_url).attr('style',"margin-right:3px;").tooltip({ placement : 'top', title : data.tweet.user.screen_name }));
-//                    $($usrImg).tooltip({ placement : 'top', title : data.tweet.user.screen_name });
-                    
-                    var $buttonApprove = $('<button>').attr('class','btn btn-sm btn-success').attr('style','margin-right:2px;').append('<span class="glyphicon glyphicon-ok"></span>');
-                    
-                    var $buttonReject = $('<button>').attr('class','btn btn-sm btn-danger').append('<span class="glyphicon glyphicon-remove"></span>');
-                    
-                    $tweetRow.append($('<td>').append($usrImg));
-                    $tweetRow.append($('<td>').text(data.tweet.text));
-                    $tweetRow.append($('<td>').text(data.similarity));
-                    $tweetRow.append($('<td>').text(new Date(data.tweet.created_at)));
-                    $tweetRow.append($('<td>').html('<a target="_blank" href="http://www.twitter.com/'+data.tweet.user.screen_name+'/statuses/'+data.tweet.id_str+'">Tweet URL</a>'));
-                    $tweetRow.append($('<td>').append($buttonApprove).append($buttonReject));
-                    $tweetsTableBody.append($tweetRow);
-                });
-            });
-        </script>
     </head>
 
     <body>
@@ -85,8 +28,11 @@
                 <div class="col-md-12">
                     <!-- Nav tabs -->
                     <ul class="nav nav-pills">
-                      <li class="active"><a href="#home" data-toggle="pill">Tweets</a></li>
-                      <li><a href="#profile" data-toggle="pill">SuperVector</a></li>
+                        <li class="active"><a href="#tweets" data-toggle="pill">Tweets</a></li>
+                        <li><a href="#superVectorTab" id="superVectorTabButton" data-toggle="pill">SuperVector</a></li>
+                        <li><a href="#noFeedbackTweetsTab" id="noFeedbackTweetsTabButton" data-toggle="pill">Tweets sin feedback</a></li>
+                        <li><a href="#approvedTweetsTab" id="approvedTweetsTabButton" data-toggle="pill">Tweets aprobados</a></li>
+                        <li><a href="#rejectedTweetsTab" id="rejectedTweetsTabButton" data-toggle="pill">Tweets rechazados</a></li>
                     </ul>
                 </div>
             </div>
@@ -95,7 +41,8 @@
                 <div class="col-md-12">
                     <!-- Tab panes -->
                     <div class="tab-content">
-                        <div class="tab-pane active" id="home">
+                        <!-- TAB-PANE: REAL TIME TWEETS -->
+                        <div class="tab-pane active" id="tweets">
                             <div class="row">
                                 <div class="col-md-12" style="margin-bottom:20px;">
                                     <button id="startStreaming" type="button" class="btn btn-success">Start Streaming</button>
@@ -121,8 +68,8 @@
                                 </div>
                             </div>
                         </div>
-
-                        <div class="tab-pane" id="profile">
+                        <!-- TAB-PANE: SUPER VECTOR -->
+                        <div class="tab-pane" id="superVectorTab">
                             <div class="row">
                                 <div class="col-md-12">
                                     <p>
@@ -137,6 +84,85 @@
                                             <tr>
                                                 <th>Keyword</th>
                                                 <th>Frequency</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- TAB-PANE: NO FEEDBACK TWEETS -->
+                        <div class="tab-pane" id="noFeedbackTweetsTab">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <ul class="pagination" id="paginationNoFeedbackTweets">
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <table id="noFeedbackTweetsTable" class="table table-bordered table-hover table-condensed">
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Tweet</th>
+                                                <th>Date</th>
+                                                <th>URL</th>
+                                                <th style="width:82px;">Feedback</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- TAB-PANE: APPROVED TWEETS -->
+                        <div class="tab-pane" id="approvedTweetsTab">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <ul class="pagination" id="paginationApprovedTweets">
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <table id="approvedTweetsTable" class="table table-bordered table-hover table-condensed">
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Tweet</th>
+                                                <th>Date</th>
+                                                <th>URL</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- TAB-PANE: REJECTED TWEETS -->
+                        <div class="tab-pane" id="rejectedTweetsTab">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <ul class="pagination" id="paginationRejectedTweets">
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <table id="rejectedTweetsTable" class="table table-bordered table-hover table-condensed">
+                                        <thead>
+                                            <tr>
+                                                <th>User</th>
+                                                <th>Tweet</th>
+                                                <th>Date</th>
+                                                <th>URL</th>
                                             </tr>
                                         </thead>
                                         <tbody>
