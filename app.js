@@ -33,6 +33,7 @@ vectorDao.getSuperVector(function (err, vector) {
         // Get the default super vector from file and store in mongo db database
         var superVectorFile = fs.readFileSync(__dirname + '/superVector.json');
         superVector = JSON.parse(superVectorFile.toString());
+        superVector = vectorsUtils.normalizeMapVector(superVector);
         vectorDao.updateSuperVector(superVector);
     }
     superVectorNorma = vectorsUtils.vectorModulus(superVector);
@@ -66,8 +67,8 @@ var util = require('util'),
     tweetDao = require('./lib/tweetDao'),
     configHelper = require('./lib/configHelper'),
     originalWordWeight = configHelper.originalWordWeight ? configHelper.originalWordWeight : 0.98,
-    rejectedWordWeight = configHelper.rejectedWordWeight ? configHelper.rejectedWordWeight : 0.1,
-    approvedWordWeight = configHelper.approvedWordWeight ? configHelper.approvedWordWeight : 0.8;
+    rejectedWordWeight = configHelper.rejectedWordWeight ? configHelper.rejectedWordWeight : 0.02,
+    approvedWordWeight = configHelper.approvedWordWeight ? configHelper.approvedWordWeight : 0.08;
 
 /* ******************************************************************************** */
 
