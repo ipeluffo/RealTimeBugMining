@@ -91,6 +91,7 @@ var util = require('util'),
     socketIO = require('socket.io'),
     tweetDao = require('./lib/tweetDao'),
     configHelper = require('./lib/configHelper'),
+    statisticsDao = require('./lib/statisticsDao'),
     originalWordWeight = configHelper.originalWordWeight ? configHelper.originalWordWeight : 0.1,
     rejectedWordWeight = configHelper.rejectedWordWeight ? configHelper.rejectedWordWeight : 0.02,
     approvedWordWeight = configHelper.approvedWordWeight ? configHelper.approvedWordWeight : 0.08;
@@ -169,7 +170,7 @@ function buildWordsCountsMapFromTweetsArray(tweetsArray) {
 
     for (var tweetIndex in tweetsArray) {
         tweet = tweetsArray[tweetIndex];
-        if (tweet && tweet.text) {
+        if (tweet && tweet.text && tweet.text.length > 0) {
             words = tweet.text.split(/\s+/);
             for (wordIndex in words) {
                 if ( !isValidURL(words[wordIndex]) ) {
@@ -224,6 +225,33 @@ app.route('/vectorsWords').get(function (request, response, next) {
             vectorsWords[superVector.name] = superVector.vectorValue;
             
             response.send(vectorsWords);
+        });
+    });
+});
+
+app.route('/tweetsAmounts').get(function (request, response, next) {
+    var tweetsAmounts = [];
+    tweetDao.approvedTweetsCount(function (err, count) {
+        if (err) { throw err; }
+        
+        tweetsAmounts.push({"tweetsType" : "Approved Tweets", "count" : count});
+        
+        tweetDao.rejectedTweetsCount(function (err, count){
+            if (err) { throw err; }
+            
+            tweetsAmounts.push({"tweetsType" : "Rejected Tweets", "count" : count});
+            
+            tweetDao.noFeedbackTweetsCount(function (err, count) {
+                if (err) { throw err; }
+            
+                tweetsAmounts.push({"tweetsType" : "No-Feedback Tweets", "count" : count});
+                
+                statisticsDao.getDiscardedTweetsCount(function (err, metric){
+                    if (err) { throw err; }
+                    tweetsAmounts.push({"tweetsType": "Discarded Tweets", "count" : metric.count});
+                    response.send(tweetsAmounts);
+                });
+            });
         });
     });
 });
@@ -296,7 +324,7 @@ function initializeTwitterStream(socket){
         twitterStream = stream;
 
         twitterStream.on('data', function (data) {
-            if (data.text !== undefined) {
+            if (data.text !== undefined && !data["retweeted_status"]) {
                 var tweetVectorTF = buildTweetVectorTF(data),
                     tweetVectorTF = vectorsUtils.normalizeMapVector(tweetVectorTF),
                     tweetVectorMod = 1,
@@ -331,6 +359,8 @@ function initializeTwitterStream(socket){
                     io.sockets.emit('newTweet', { 'tweet' : data, 'similarity' : similarity });
 //                    socket.emit('newTweet', data);
                     tweetDao.saveTweet(data);
+                } else {
+                    statisticsDao.incrementDiscardedTweets(1);
                 }
             }
         });
