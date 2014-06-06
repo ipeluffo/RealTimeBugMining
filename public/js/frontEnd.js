@@ -145,6 +145,10 @@ $(function (){
         $tweetRow.append($('<td>').append($buttonApprove).append($buttonReject));
         $tweetsTableBody.append($tweetRow);
     });
+    
+    socket.on('newDocumentVector', function (data) {
+        $('<div class="alert alert-success floatingAlertMessage" style="display: none;">').append("A new document vector has been created!").appendTo($('body')).fadeIn(300).delay(1500).fadeOut(500);
+    });
 });
 
 var approveTweet = function (eventObject) {

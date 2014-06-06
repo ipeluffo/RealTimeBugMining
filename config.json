@@ -4,7 +4,7 @@
     "mongoDbDatabase" : "realTimeBugMining",
     "mongoDbUser" : "",
     "mongoDbPass" : "",
-    "originalWordWeight" : 0.98,
+    "originalWordWeight" : 1,
     "approvedWordWeight" : 0.08,
     "rejectedWordWeight" : 0.02
 }

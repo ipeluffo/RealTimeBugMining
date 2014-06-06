@@ -13,14 +13,31 @@
         <script src="/js/jquery-1.11.0.min.js"></script>
         <script src="/js/bootstrap.min.js"></script>
 -->
+        
+        <style>
+            .floatingAlertMessage {
+                position: fixed;
+                top: 45%;
+                left: 50%;
+                margin-left: -150px;
+                width: 300px;
+                z-index: 9999;
+            }
+        </style>
     </head>
 
     <body>
         <nav class="navbar navbar-default" role="navigation">
             <div class="container-fluid">
                 <div class="navbar-header">
-                  <a class="navbar-brand" href="#">Twitter real-time bug reporting</a>
+                    <a class="navbar-brand" href="#">Twitter real-time bug reporting</a>
                 </div>
+                
+                <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                    <ul class="nav navbar-nav">
+                        <li class="active"><a href="#">Home</a></li>
+                        <li><a href="/visualization">Visualization</a></li>
+                    </ul>
             </div>
         </nav>
         <div class="container-fluid">
