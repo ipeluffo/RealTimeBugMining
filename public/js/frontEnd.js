@@ -135,11 +135,13 @@ $(function (){
     socket.on('twitterStreamStartedByUser', function (data) {
         $("#startStreaming").attr('disabled','disabled');
         $("#stopStreaming").removeAttr('disabled');
+        showFloatingAlert("Another user has started the stream");
     });
     
-    socket.on('twitterStreamOff', function(data) {
+    socket.on('twitterStreamStoppedByUser', function(data) {
         $("#stopStreaming").attr('disabled','disabled');
         $("#startStreaming").removeAttr('disabled');
+        showFloatingAlert("Another user has stopped the stream", 'danger');
     });
     
     socket.on('newTweet', function (data) {
@@ -162,7 +164,7 @@ $(function (){
     });
     
     socket.on('newDocumentVector', function (data) {
-        $('<div class="alert alert-success floatingAlertMessage" style="display: none;">').append("A new document vector has been created!").appendTo($('body')).fadeIn(300).delay(1500).fadeOut(500);
+        showFloatingAlert("A new document vector has been created!");
     });
 });
 
@@ -188,4 +190,12 @@ var rejectTweet = function (eventObject) {
         // Delete row
         $(this).remove();
     });
+};
+
+var showFloatingAlert = function(message, style) {
+    var cssStyle = "alert-success";
+    if (style === 'danger'){
+        cssStyle = "alert-danger";
+    }
+    $('<div class="alert '+cssStyle+' floatingAlertMessage" style="display: none;">').append(message).appendTo($('body')).fadeIn(300).delay(1500).fadeOut(500);
 };

@@ -389,7 +389,7 @@ io.sockets.on('connection', function (socket) {
     socket.on('startStreaming', function (data) {
         if (twitterStream === null){
             initializeTwitterStream(socket);
-            io.sockets.emit('twitterStreamStartedByUser');
+            socket.broadcast.emit('twitterStreamStartedByUser'); // Send message to everyone BUT sender
         }else{
 //            twitterStream.on('data')
         }
@@ -397,7 +397,7 @@ io.sockets.on('connection', function (socket) {
 
     socket.on('stopStreaming', function (data) {
         stopTwitterStream();
-        io.sockets.emit('twitterStreamOff');
+        socket.broadcast.emit('twitterStreamStoppedByUser'); // Send message to everyone BUT sender
     });
     
     socket.on('approveTweet', function (data) {
