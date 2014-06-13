@@ -369,25 +369,35 @@ function initializeTwitterStream(socket){
             console.log(data);
         });
     });
-}
+};
+
+function stopTwitterStream() {
+    if (twitterStream) {
+        console.log("Twitter streaming stopped by user!");
+        twitterStream.destroy();
+        twitterStream = null;
+    }
+};
 
 /* ******************************************************************************** */
 
 io.sockets.on('connection', function (socket) {
+    if (twitterStream) {
+        socket.emit('twitterStreamOn');
+    }
+    
     socket.on('startStreaming', function (data) {
         if (twitterStream === null){
             initializeTwitterStream(socket);
+            io.sockets.emit('twitterStreamStartedByUser');
         }else{
 //            twitterStream.on('data')
         }
     });
 
     socket.on('stopStreaming', function (data) {
-        if (twitterStream) {
-            console.log("Twitter streaming stopped by user!");
-            twitterStream.destroy();
-            twitterStream = null;
-        }
+        stopTwitterStream();
+        io.sockets.emit('twitterStreamOff');
     });
     
     socket.on('approveTweet', function (data) {

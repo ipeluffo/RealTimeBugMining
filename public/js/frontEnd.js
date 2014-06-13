@@ -127,6 +127,21 @@ $(function () {
 $(function (){
     socket = io.connect(window.location.origin);
 
+    socket.on('twitterStreamOn', function (data) {
+        $("#startStreaming").attr('disabled','disabled');
+        $("#stopStreaming").removeAttr('disabled');
+    });
+    
+    socket.on('twitterStreamStartedByUser', function (data) {
+        $("#startStreaming").attr('disabled','disabled');
+        $("#stopStreaming").removeAttr('disabled');
+    });
+    
+    socket.on('twitterStreamOff', function(data) {
+        $("#stopStreaming").attr('disabled','disabled');
+        $("#startStreaming").removeAttr('disabled');
+    });
+    
     socket.on('newTweet', function (data) {
         var $tweetsTableBody = $('#tweetsTable tbody');
         var $tweetRow = $('<tr>').attr('data-tweetid', data.tweet.id_str);
