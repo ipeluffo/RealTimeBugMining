@@ -310,10 +310,10 @@ function isValidURL (url) {
 
 // Twitter Node module
 var twit = new twitter({
-    consumer_key : '',
-    consumer_secret : '',
-    access_token_key : '',
-    access_token_secret : ''
+    consumer_key : configHelper.twitterConsumerKey,
+    consumer_secret : configHelper.twitterConsumerSecret,
+    access_token_key : configHelper.twitterTokenKey,
+    access_token_secret : configHelper.twitterTokenSecret
 });
 
 var twitterStream = null;
