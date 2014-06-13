@@ -310,10 +310,10 @@ function isValidURL (url) {
 
 // Twitter Node module
 var twit = new twitter({
-    consumer_key : 'awaQ1vqxiG4mJIhoNH7svg',
-    consumer_secret : 'H5nrtPkkmOD35IcnGilHDMO6xZz6KGmuszUNjVz2c',
-    access_token_key : '2416048434-XserUsN4WcM953QET4kxH8vU8C3Yhk5P4fk8rR1',
-    access_token_secret : '33DVcA2Z2GxztbuWBY5hBj8b6a4AHsJbqlGXQvV2KZq79'
+    consumer_key : '',
+    consumer_secret : '',
+    access_token_key : '',
+    access_token_secret : ''
 });
 
 var twitterStream = null;
