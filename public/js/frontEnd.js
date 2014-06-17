@@ -132,6 +132,11 @@ $(function (){
         $("#stopStreaming").removeAttr('disabled');
     });
     
+    socket.on('twitterStreamOff', function (data){
+        $("#startStreaming").removeAttr('disabled');
+        $("#stopStreaming").attr('disabled','disabled');
+    });
+    
     socket.on('twitterStreamStartedByUser', function (data) {
         $("#startStreaming").attr('disabled','disabled');
         $("#stopStreaming").removeAttr('disabled');

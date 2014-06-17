@@ -318,7 +318,7 @@ var twit = new twitter({
 
 var twitterStream = null;
 
-function initializeTwitterStream(socket){
+function initializeTwitterStream(){
     twit.stream('statuses/filter', {track : Object.keys(searchVector), language : 'en' }, function (stream) {
     
         twitterStream = stream;
@@ -357,7 +357,6 @@ function initializeTwitterStream(socket){
                 
                 if (similar){
                     io.sockets.emit('newTweet', { 'tweet' : data, 'similarity' : similarity });
-//                    socket.emit('newTweet', data);
                     tweetDao.saveTweet(data);
                 } else {
                     statisticsDao.incrementDiscardedTweets(1);
@@ -367,13 +366,13 @@ function initializeTwitterStream(socket){
 
         twitterStream.on('disconnect', function (data) {
             console.log(data);
+            io.sockets.emit('twitterStreamOff');
         });
     });
 };
 
 function stopTwitterStream() {
     if (twitterStream) {
-        console.log("Twitter streaming stopped by user!");
         twitterStream.destroy();
         twitterStream = null;
     }
@@ -388,15 +387,15 @@ io.sockets.on('connection', function (socket) {
     
     socket.on('startStreaming', function (data) {
         if (twitterStream === null){
-            initializeTwitterStream(socket);
+            initializeTwitterStream();
+            console.log("Twitter streaming started by user!");
             socket.broadcast.emit('twitterStreamStartedByUser'); // Send message to everyone BUT sender
-        }else{
-//            twitterStream.on('data')
         }
     });
 
     socket.on('stopStreaming', function (data) {
         stopTwitterStream();
+        console.log("Twitter streaming stopped by user!");
         socket.broadcast.emit('twitterStreamStoppedByUser'); // Send message to everyone BUT sender
     });
     
@@ -544,6 +543,52 @@ var applyRocchioApprovedTweet = function(tweetId) {
         }
     });
 }
+
+/* ******************************************************************************** */
+
+function updateSearchVectorWords() {
+    console.log("Search vector update process started...");
+    
+    // Check if Twitter stream is on and stopped if it's working
+    var streamStopped = false;
+    if (twitterStream) {
+        stopTwitterStream();
+        console.log("Twitter streaming stopped to update Search Vector!");
+        streamStopped = true;
+    }
+    
+    // Check for words in Super Vectors which are not in Search Vector ===> New added words
+    for (var word in superVector) {
+        if (!searchVector[word]) {
+            searchVector[word] = true;
+        }
+    }
+    
+    // Check for words in Search Vector which are not in Super Vector ===> Deleted words
+    for (var word in searchVector){
+        // Check if word is single
+        if (word.split(/\s+/).length == 1){
+            if (!superVector[word]) {
+                delete searchVector[word];
+            }
+        }
+    }
+    
+    // Update search vector in database
+    vectorDao.updateSearchVector(searchVector);
+    
+    // Re activate twitter stream if it was working
+    if (streamStopped) {
+        initializeTwitterStream();
+        console.log("Twitter streaming started after updating Search Vector!");
+    }
+    
+    console.log("Search vector update process finished...");
+};
+
+setInterval(function () {
+    updateSearchVectorWords();
+}, configHelper.searchVectorUpdateInterval);
 
 /* ******************************************************************************** */
 
