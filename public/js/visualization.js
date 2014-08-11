@@ -339,5 +339,57 @@ function renderTweetsPie(tweetsPieContainerId) {
             .style("text-anchor", "middle")
             .style("font","10px sans-serif")
             .text(function(d) { return d.data.tweetsType; });
+        
+        // Display counts in table
+        displayCounts(data);
     });
+};
+
+function displayCounts(tweetsCounts) {
+    var totalTweetsCount = 0,
+        discardedTweetsCount = 0,
+        acceptedTweetsCount = 0,
+        rejectedTweetsCount = 0,
+        approvedTweetsCount = 0,
+        noFeedbackTweetsCount = 0;
+    
+    for (var tweetsCountsIndex in tweetsCounts){
+        var tweetsCount = tweetsCounts[tweetsCountsIndex];
+        totalTweetsCount += tweetsCount.count;
+        
+        switch (tweetsCount.tweetsType) {
+            case 'Approved Tweets' :
+                approvedTweetsCount = tweetsCount.count;
+                acceptedTweetsCount += tweetsCount.count;
+                break;
+                
+            case 'Rejected Tweets':
+                rejectedTweetsCount = tweetsCount.count;
+                acceptedTweetsCount += tweetsCount.count;
+                break;
+                
+            case 'No-Feedback Tweets':
+                noFeedbackTweetsCount = tweetsCount.count;
+                acceptedTweetsCount += tweetsCount.count;
+                break;
+                
+            case 'Discarded Tweets':
+                discardedTweetsCount = tweetsCount.count;
+                break;
+        }
+    }
+    
+    $("#totalTweetsCell").text(totalTweetsCount);
+    $("#discardedTweetsCell").text(discardedTweetsCount);
+    $("#acceptedTweetsCell").text(acceptedTweetsCount);
+    $("#approvedTweetsCell").text(approvedTweetsCount);
+    $("#rejectedTweetsCell").text(rejectedTweetsCount);
+    $("#noFeedbackTweetsCell").text(noFeedbackTweetsCount);
+    
+    $("#totalTweetsPercent").text("100%");
+    $("#discardedTweetsPercent").text(Math.round((discardedTweetsCount/totalTweetsCount)*100) + '%');
+    $("#acceptedTweetsPercent").text(Math.round((acceptedTweetsCount/totalTweetsCount)*100) + '%');
+    $("#approvedTweetsPercent").text(Math.round((approvedTweetsCount/acceptedTweetsCount)*100) + '%');
+    $("#rejectedTweetsPercent").text(Math.round((rejectedTweetsCount/acceptedTweetsCount)*100) + '%');
+    $("#noFeedbackTweetsPercent").text(Math.round((noFeedbackTweetsCount/acceptedTweetsCount)*100) + '%');
 };
