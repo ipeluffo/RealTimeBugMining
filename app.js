@@ -63,7 +63,7 @@ vectorDao.getDocumentVectors(function (err, vectorsArray) {
         console.error('ERROR: failed to connect to MongoDB database');
         process.exit(1);
     }
-    
+
     if (vectorsArray.length > 0) {
         documentVectors = vectorsArray;
     } else {
@@ -110,7 +110,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Configure routes
 app.route('/').get(function (request, response, next) {
-    response.sendfile(__dirname + "/index.html");
+    response.sendfile(__dirname + "/views/index.html");
 });
 
 app.route('/visualization').get(function (req, res, next) {
@@ -125,7 +125,7 @@ app.route('/noFeedbackTweets').get(function (request, response, next) {
     var page = request.query.page || 1;
     tweetDao.findNoFeedbackTweetsWithPagination(page, function(err, tweets) {
         if (err) { throw err; }
-        
+
         tweetDao.noFeedbackTweetsCount(function (err, count){
             if (err) { throw err; }
             response.send({'count' : count, 'pages' : Math.ceil(count / 100), 'tweets':tweets});
@@ -137,7 +137,7 @@ app.route('/approvedTweets').get(function (request, response, next) {
     var page = request.query.page || 1;
     tweetDao.findApprovedTweetsWithPagination(page, function(err, tweets) {
         if (err) { throw err; }
-        
+
         tweetDao.approvedTweetsCount(function (err, count){
             if (err) { throw err; }
             response.send({'count' : count, 'pages' : Math.ceil(count / 100), 'tweets':tweets});
@@ -149,7 +149,7 @@ app.route('/rejectedTweets').get(function (request, response, next) {
     var page = request.query.page || 1;
     tweetDao.findRejectedTweetsWithPagination(page, function(err, tweets) {
         if (err) { throw err; }
-        
+
         tweetDao.rejectedTweetsCount(function (err, count){
             if (err) { throw err; }
             response.send({'count' : count, 'pages' : Math.ceil(count / 100), 'tweets':tweets});
@@ -183,14 +183,14 @@ function buildWordsCountsMapFromTweetsArray(tweetsArray) {
             }
         }
     }
-    
+
     return tweetsWords;
 };
 
 app.route('/noFeedbackTweetsWords').get(function (request, response, next) {
     tweetDao.findNoFeedbackTweets(function (err, tweetsArray) {
         if (err) { throw err; }
-        
+
         var tweetsWords = buildWordsCountsMapFromTweetsArray(tweetsArray);
         response.send(tweetsWords);
     });
@@ -199,7 +199,7 @@ app.route('/noFeedbackTweetsWords').get(function (request, response, next) {
 app.route('/approvedTweetsWords').get(function (request, response, next) {
     tweetDao.findApprovedTweets(function (err, tweetsArray) {
         if (err) { throw err; }
-        
+
         var tweetsWords = buildWordsCountsMapFromTweetsArray(tweetsArray);
         response.send(tweetsWords);
     });
@@ -208,7 +208,7 @@ app.route('/approvedTweetsWords').get(function (request, response, next) {
 app.route('/rejectedTweetsWords').get(function (request, response, next) {
     tweetDao.findRejectedTweets(function (err, tweetsArray) {
         if (err) { throw err; }
-        
+
         var tweetsWords = buildWordsCountsMapFromTweetsArray(tweetsArray);
         response.send(tweetsWords);
     });
@@ -220,10 +220,10 @@ app.route('/vectorsWords').get(function (request, response, next) {
         for (var documentVectorIdx in documentVectorsArray) {
             vectorsWords["documentVector"+documentVectorIdx] = documentVectorsArray[documentVectorIdx].vectorValue;
         }
-        
+
         vectorDao.getSuperVector(function (err, superVector) {
             vectorsWords[superVector.name] = superVector.vectorValue;
-            
+
             response.send(vectorsWords);
         });
     });
@@ -233,19 +233,19 @@ app.route('/tweetsAmounts').get(function (request, response, next) {
     var tweetsAmounts = [];
     tweetDao.approvedTweetsCount(function (err, count) {
         if (err) { throw err; }
-        
+
         tweetsAmounts.push({"tweetsType" : "Approved Tweets", "count" : count});
-        
+
         tweetDao.rejectedTweetsCount(function (err, count){
             if (err) { throw err; }
-            
+
             tweetsAmounts.push({"tweetsType" : "Rejected Tweets", "count" : count});
-            
+
             tweetDao.noFeedbackTweetsCount(function (err, count) {
                 if (err) { throw err; }
-            
+
                 tweetsAmounts.push({"tweetsType" : "No-Feedback Tweets", "count" : count});
-                
+
                 statisticsDao.getDiscardedTweetsCount(function (err, metric){
                     if (err) { throw err; }
                     tweetsAmounts.push({"tweetsType": "Discarded Tweets", "count" : metric.count});
@@ -320,7 +320,7 @@ var twitterStream = null;
 
 function initializeTwitterStream(){
     twit.stream('statuses/filter', {track : Object.keys(searchVector), language : 'en' }, function (stream) {
-    
+
         twitterStream = stream;
 
         twitterStream.on('data', function (data) {
@@ -331,21 +331,21 @@ function initializeTwitterStream(){
                     similar = false,
                     documentVectorIndex = 0,
                     similarity = 0;
-                
+
                 // Search similarity of tweet with document vectors
                 for (documentVectorIndex = 0; documentVectorIndex < documentVectors.length; documentVectorIndex++) {
                     var documentVector = documentVectors[documentVectorIndex],
                         documentVectorValues = documentVector.vectorValue;
-                    
+
                     similarity = vectorsUtils.vectorsSimilarity(documentVectorValues, tweetVectorTF, vectorsUtils.vectorModulus(documentVectorValues), tweetVectorMod);
-                 
+
                     if (similarity > thresholdDocument){
                         similarity = similarity + " (documentVector)";
                         similar = true;
                         break;
                     }
                 }
-                
+
                 // If there is no similar document vector ===> try with super vector
                 if (!similar) {
                     similarity = vectorsUtils.vectorsSimilarity(superVector, tweetVectorTF, superVectorNorma, tweetVectorMod);
@@ -354,7 +354,7 @@ function initializeTwitterStream(){
                         similar = true;
                     }
                 }
-                
+
                 if (similar){
                     io.sockets.emit('newTweet', { 'tweet' : data, 'similarity' : similarity });
                     tweetDao.saveTweet(data);
@@ -384,7 +384,7 @@ io.sockets.on('connection', function (socket) {
     if (twitterStream) {
         socket.emit('twitterStreamOn');
     }
-    
+
     socket.on('startStreaming', function (data) {
         if (twitterStream === null){
             initializeTwitterStream();
@@ -398,7 +398,7 @@ io.sockets.on('connection', function (socket) {
         console.log("Twitter streaming stopped by user!");
         socket.broadcast.emit('twitterStreamStoppedByUser'); // Send message to everyone BUT sender
     });
-    
+
     socket.on('approveTweet', function (data) {
         if ( data.tweetId ){
             tweetDao.approveTweet(data.tweetId, function (err, result) {
@@ -407,7 +407,7 @@ io.sockets.on('connection', function (socket) {
             applyRocchioApprovedTweet(data.tweetId);
         }
     });
-    
+
     socket.on('rejectTweet', function (data) {
         if ( data.tweetId ){
             tweetDao.rejectTweet(data.tweetId, function (err, result) {
@@ -420,7 +420,7 @@ io.sockets.on('connection', function (socket) {
 
 function applyRejectRocchio(vector, tweet) {
     var wordsToDelete = [];
-    
+
     for (var word in vector) {
         if (tweet[word]) {
             vector[word] = vector[word] * originalWordWeight - tweet[word] * rejectedWordWeight;
@@ -429,11 +429,11 @@ function applyRejectRocchio(vector, tweet) {
             vector[word] = vector[word] * originalWordWeight;
         }
     }
-    
+
     for (var wordToDeleteIndex in wordsToDelete) {
         delete vector[wordsToDelete[wordToDeleteIndex]];
     }
-    
+
     return vector;
 };
 
@@ -443,10 +443,10 @@ var applyRocchioRejectedTweet = function(tweetId) {
         if (tweet) {
             var tweetVectorTF = buildTweetVectorTF(tweet);
             tweetVectorTF = vectorsUtils.normalizeMapVector(tweetVectorTF);
-            
+
             var documentVectorIndex,
                 similarity = 0;
-            
+
             // Punish words of rejected tweet on similar document vector
             for (documentVectorIndex = 0; documentVectorIndex < documentVectors.length; documentVectorIndex++) {
                 var documentVector = documentVectors[documentVectorIndex],
@@ -482,13 +482,13 @@ function applyApproveRocchio(vector, tweet) {
             vector[word] = tweet[word] * approvedWordWeight;
         }
     }
-    
+
     for (var word in vector) {
         if (!tweet[word]) {
             vector[word] = vector[word] * originalWordWeight;
         }
     }
-    
+
     return vector;
 };
 
@@ -502,7 +502,7 @@ var applyRocchioApprovedTweet = function(tweetId) {
             var documentVectorIndex,
                 similarity = 0,
                 similar = false;
-            
+
             // Reward words of approved tweet on similar document vector
             for (documentVectorIndex = 0; documentVectorIndex < documentVectors.length; documentVectorIndex++) {
                 var documentVector = documentVectors[documentVectorIndex],
@@ -526,15 +526,15 @@ var applyRocchioApprovedTweet = function(tweetId) {
             if (!similar) {
                 vectorDao.insertDocumentVector(tweetVectorTF, function(err, vector) {
                     if (err) { throw err; }
-                    
+
                     if (vector[0]){
                         documentVectors.push(vector[0]);
                     }
-                    
+
                     io.sockets.emit('newDocumentVector');
                 });
             }
-            
+
             // Reward words of approved tweet on super vector
             superVector = applyApproveRocchio(superVector, tweetVectorTF);
             superVector = vectorsUtils.normalizeMapVector(superVector);
@@ -548,7 +548,7 @@ var applyRocchioApprovedTweet = function(tweetId) {
 
 function updateSearchVectorWords() {
     console.log("Search vector update process started...");
-    
+
     // Check if Twitter stream is on and stopped if it's working
     var streamStopped = false;
     if (twitterStream) {
@@ -556,14 +556,14 @@ function updateSearchVectorWords() {
         console.log("Twitter streaming stopped to update Search Vector!");
         streamStopped = true;
     }
-    
+
     // Check for words in Super Vectors which are not in Search Vector ===> New added words
     for (var word in superVector) {
         if (!searchVector[word]) {
             searchVector[word] = true;
         }
     }
-    
+
     // Check for words in Search Vector which are not in Super Vector ===> Deleted words
     for (var word in searchVector){
         // Check if word is single
@@ -573,16 +573,16 @@ function updateSearchVectorWords() {
             }
         }
     }
-    
+
     // Update search vector in database
     vectorDao.updateSearchVector(searchVector);
-    
+
     // Re activate twitter stream if it was working
     if (streamStopped) {
         initializeTwitterStream();
         console.log("Twitter streaming started after updating Search Vector!");
     }
-    
+
     console.log("Search vector update process finished...");
 };
 

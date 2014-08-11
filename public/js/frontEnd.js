@@ -20,7 +20,7 @@ $(function () {
     });
     
     $("#superVectorTabButton").click(function (event){
-        jQuery.getJSON(window.location.origin+"/superVector", {"nombre":"natalia natalia"}, function(data, textStatus, jqXHR){
+        jQuery.getJSON(window.location.origin+"/superVector", {}, function(data, textStatus, jqXHR){
             // Remove super vector table rows
             $("#superVectorTable tbody tr").remove();
             
