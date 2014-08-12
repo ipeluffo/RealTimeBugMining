@@ -39,6 +39,10 @@ $(function () {
     /* ******************************************************************************** */
     
     $("#searchVectorTabButton").click(function (event){
+        updateSearchVectorTable();
+    });
+    
+    var updateSearchVectorTable = function () {
         jQuery.getJSON(window.location.origin+"/searchVector", {}, function(data, textStatus, jqXHR){
             // Remove search vector table rows
             $("#searchVectorTable tbody tr").remove();
@@ -57,7 +61,7 @@ $(function () {
                 $searchVectorTableBody.append(keywordRow);
             }
         });
-    });
+    };
     
     var buildDeleteSearchVectorKeywordButton = function (keyword) {
         var button = $('<button>').addClass("btn btn-sm btn-danger").text("Delete");
@@ -76,6 +80,18 @@ $(function () {
     
     /* ******************************************************************************** */
     
+    $("#addSearchVectorKeywordBtn").click(function (event) {
+        var keyword = $("#searchVectorKeywordInput").val();
+        if ( keyword ) {
+            if ( socket ) {
+                socket.emit('addSearchVectorKeyword', {'keyword' : keyword });
+                $("#searchVectorKeywordInput").val("");
+                updateSearchVectorTable();
+            }
+        }
+    });
+    
+    /* ******************************************************************************** */
     var updatePagination = function (paginationId, activePage, pagesCount, tweetTableRowBuilder, tweetsSrcURL, tweetsTableId) {
         var $pagination = $("#"+paginationId);
         if ($pagination) {

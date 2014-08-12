@@ -449,6 +449,35 @@ io.sockets.on('connection', function (socket) {
             console.log("Search vector update process finished (keyword deletion)...");
         }
     });
+    
+    socket.on('addSearchVectorKeyword', function (data) {
+        if ( data.keyword ) {
+            console.log("Search vector update process started (keyword '"+data.keyword+"' addition)...");
+
+            // Check if Twitter stream is on and stopped if it's working
+            var streamStopped = false;
+            if (twitterStream) {
+                stopTwitterStream();
+                console.log("Twitter streaming stopped to update Search Vector!");
+                streamStopped = true;
+            }
+
+            if ( !searchVector[data.keyword] ){
+                searchVector[data.keyword] = true;
+            }
+            
+            // Update search vector in database
+            vectorDao.updateSearchVector(searchVector);
+
+            // Re activate twitter stream if it was working
+            if (streamStopped) {
+                initializeTwitterStream();
+                console.log("Twitter streaming started after updating Search Vector!");
+            }
+
+            console.log("Search vector update process finished (keyword addition)...");
+        }
+    });
 });
 
 function applyRejectRocchio(vector, tweet) {
