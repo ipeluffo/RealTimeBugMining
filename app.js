@@ -121,6 +121,10 @@ app.route('/superVector').get(function (request, response, next) {
     response.send({'superVector' : superVector, 'normaSuperVector' : superVectorNorma});
 });
 
+app.route('/searchVector').get(function (request, response, next) {
+    response.send({'searchVector' : searchVector});
+});
+
 app.route('/noFeedbackTweets').get(function (request, response, next) {
     var page = request.query.page || 1;
     tweetDao.findNoFeedbackTweetsWithPagination(page, function(err, tweets) {
@@ -414,6 +418,35 @@ io.sockets.on('connection', function (socket) {
                 if (err) { throw err; }
             });
             applyRocchioRejectedTweet(data.tweetId);
+        }
+    });
+    
+    socket.on('deleteSearchVectorKeyword', function (data) {
+        if ( data.keyword ) {
+            console.log("Search vector update process started (keyword '"+data.keyword+"' deletion)...");
+
+            // Check if Twitter stream is on and stopped if it's working
+            var streamStopped = false;
+            if (twitterStream) {
+                stopTwitterStream();
+                console.log("Twitter streaming stopped to update Search Vector!");
+                streamStopped = true;
+            }
+
+            if ( searchVector[data.keyword] ){
+                delete searchVector[data.keyword];
+            }
+            
+            // Update search vector in database
+            vectorDao.updateSearchVector(searchVector);
+
+            // Re activate twitter stream if it was working
+            if (streamStopped) {
+                initializeTwitterStream();
+                console.log("Twitter streaming started after updating Search Vector!");
+            }
+
+            console.log("Search vector update process finished (keyword deletion)...");
         }
     });
 });

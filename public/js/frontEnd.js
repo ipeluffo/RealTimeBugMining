@@ -36,6 +36,46 @@ $(function () {
         });
     });
     
+    /* ******************************************************************************** */
+    
+    $("#searchVectorTabButton").click(function (event){
+        jQuery.getJSON(window.location.origin+"/searchVector", {}, function(data, textStatus, jqXHR){
+            // Remove search vector table rows
+            $("#searchVectorTable tbody tr").remove();
+            
+            var $searchVectorTableBody = $('#searchVectorTable tbody');
+            
+            var searchVectorSortedKeys = Object.keys(data.searchVector).sort();
+            for (var keywordIndex in searchVectorSortedKeys){
+                var keyword = searchVectorSortedKeys[keywordIndex];
+                var keywordRow = $('<tr>')
+                                    .attr('data-keyword', keyword)
+                                    .append($('<td>').text(keyword))
+                                    .append(
+                                        $('<td>').append(buildDeleteSearchVectorKeywordButton(keyword))
+                                    );
+                $searchVectorTableBody.append(keywordRow);
+            }
+        });
+    });
+    
+    var buildDeleteSearchVectorKeywordButton = function (keyword) {
+        var button = $('<button>').addClass("btn btn-sm btn-danger").text("Delete");
+        button.click({'keyword':keyword}, function (eventObject) {
+            var keyword = eventObject.data.keyword;
+            $("#searchVectorTable tr[data-keyword='"+keyword+"']").fadeOut(function () {
+                // Send searchVector keyword to delete to back-end
+                socket.emit('deleteSearchVectorKeyword', { 'keyword' : keyword });
+
+                // Delete row
+                $(this).remove();
+            });
+        });
+        return button;
+    };
+    
+    /* ******************************************************************************** */
+    
     var updatePagination = function (paginationId, activePage, pagesCount, tweetTableRowBuilder, tweetsSrcURL, tweetsTableId) {
         var $pagination = $("#"+paginationId);
         if ($pagination) {
