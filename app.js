@@ -22,7 +22,9 @@ var vectorDao = require('./lib/vectorDao'),
 var superVector,
     searchVector,
     superVectorNorma,
-    documentVectors = [];
+    documentVectors = [],
+    superVectorDeletedWords = {},
+    superVectorAddedWords = {};
 
 vectorDao.getSuperVector(function (err, vector) {
     if (err) {
@@ -84,7 +86,6 @@ vectorDao.getDocumentVectors(function (err, vectorsArray) {
 
 // Module dependencies
 var util = require('util'),
-    twitter = require('twitter'),
     express = require('express'),
     path = require('path'),
     http = require('http'),
@@ -312,72 +313,97 @@ function isValidURL (url) {
 
 /* ******************************************************************************** */
 
-// Twitter Node module
-var twit = new twitter({
-    consumer_key : configHelper.twitterConsumerKey,
-    consumer_secret : configHelper.twitterConsumerSecret,
-    access_token_key : configHelper.twitterTokenKey,
-    access_token_secret : configHelper.twitterTokenSecret
+// Twit Node.js module
+var Twit = require('twit');
+var T = new Twit({
+    consumer_key: configHelper.twitterConsumerKey,
+    consumer_secret: configHelper.twitterConsumerSecret,
+    access_token: configHelper.twitterTokenKey,
+    access_token_secret: configHelper.twitterTokenSecret
 });
 
 var twitterStream = null;
+var util = require('util');
 
 function initializeTwitterStream(){
-    twit.stream('statuses/filter', {track : Object.keys(searchVector), language : 'en' }, function (stream) {
+    if (twitterStream) {
+        return;
+    }
+    
+    twitterStream = T.stream('statuses/filter', {track : Object.keys(searchVector), language : 'en' });
+    
+    twitterStream.on('tweet', function (data) {
+        if (data.text !== undefined && !data["retweeted_status"]) {
+            var tweetVectorTF = buildTweetVectorTF(data),
+                tweetVectorTF = vectorsUtils.normalizeMapVector(tweetVectorTF),
+                tweetVectorMod = 1,
+                similar = false,
+                documentVectorIndex = 0,
+                similarity = 0;
 
-        twitterStream = stream;
+            // Search similarity of tweet with document vectors
+            for (documentVectorIndex = 0; documentVectorIndex < documentVectors.length; documentVectorIndex++) {
+                var documentVector = documentVectors[documentVectorIndex],
+                    documentVectorValues = documentVector.vectorValue;
 
-        twitterStream.on('data', function (data) {
-            if (data.text !== undefined && !data["retweeted_status"]) {
-                var tweetVectorTF = buildTweetVectorTF(data),
-                    tweetVectorTF = vectorsUtils.normalizeMapVector(tweetVectorTF),
-                    tweetVectorMod = 1,
-                    similar = false,
-                    documentVectorIndex = 0,
-                    similarity = 0;
+                similarity = vectorsUtils.vectorsSimilarity(documentVectorValues, tweetVectorTF, vectorsUtils.vectorModulus(documentVectorValues), tweetVectorMod);
 
-                // Search similarity of tweet with document vectors
-                for (documentVectorIndex = 0; documentVectorIndex < documentVectors.length; documentVectorIndex++) {
-                    var documentVector = documentVectors[documentVectorIndex],
-                        documentVectorValues = documentVector.vectorValue;
-
-                    similarity = vectorsUtils.vectorsSimilarity(documentVectorValues, tweetVectorTF, vectorsUtils.vectorModulus(documentVectorValues), tweetVectorMod);
-
-                    if (similarity > thresholdDocument){
-                        similarity = similarity + " (documentVector)";
-                        similar = true;
-                        break;
-                    }
-                }
-
-                // If there is no similar document vector ===> try with super vector
-                if (!similar) {
-                    similarity = vectorsUtils.vectorsSimilarity(superVector, tweetVectorTF, superVectorNorma, tweetVectorMod);
-                    if (similarity > thresholdSuperVector){
-                        similarity = similarity + " (superVector)";
-                        similar = true;
-                    }
-                }
-
-                if (similar){
-                    io.sockets.emit('newTweet', { 'tweet' : data, 'similarity' : similarity });
-                    tweetDao.saveTweet(data);
-                } else {
-                    statisticsDao.incrementDiscardedTweets(1);
+                if (similarity > thresholdDocument){
+                    similarity = similarity + " (documentVector)";
+                    similar = true;
+                    break;
                 }
             }
-        });
 
-        twitterStream.on('disconnect', function (data) {
-            console.log(data);
-            io.sockets.emit('twitterStreamOff');
-        });
+            // If there is no similar document vector ===> try with super vector
+            if (!similar) {
+                similarity = vectorsUtils.vectorsSimilarity(superVector, tweetVectorTF, superVectorNorma, tweetVectorMod);
+                if (similarity > thresholdSuperVector){
+                    similarity = similarity + " (superVector)";
+                    similar = true;
+                }
+            }
+
+            if (similar){
+                io.sockets.emit('newTweet', { 'tweet' : data, 'similarity' : similarity });
+                tweetDao.saveTweet(data);
+            } else {
+                statisticsDao.incrementDiscardedTweets(1);
+            }
+        }
+    });
+
+    twitterStream.on('error', function(e) {
+        console.log(">>> ERROR EN TWITTER STREAM <<<");
+        console.log(new Date() +" : Twitter Stream ERROR event: "+ util.inspect(e, { showHidden: false, depth: 3, colors: true}));
+        console.log("Error message: " + e.message);
+        console.log("Status Code from Twitter: " + e.statusCode);
+        console.log("Error code from Twitter: " + e.code);
+        console.log("Raw response data from Twitter: " + e.twitterReply);
+        console.log("Array of errors returned from Twitter: " + e.allErrors);
+    });
+    
+    twitterStream.on('limit', function (limitMessage) {
+        console.log(new Date()+" : Twitter Stream LIMIT event : " + util.inspect(limitMessage, { showHidden: false, depth: 3, colors: true}));
+    });
+    
+    twitterStream.on('disconnect', function (disconnectMessage) {
+        console.log("TWITTER STREAM => disconnect event: "+disconnectMessage);
+        io.sockets.emit('twitterStreamOff');
+    });
+    
+    twitterStream.on('reconnect', function (request, response, connectInterval) {
+        console.log("TWITTER STREAM => reconnect event: "+connectInterval);
+    });
+    
+    twitterStream.on('warning', function (warning) {
+        console.log("TWITTER STREAM => warning event: "+warning);
     });
 };
 
 function stopTwitterStream() {
     if (twitterStream) {
-        twitterStream.destroy();
+        twitterStream.stop();
         twitterStream = null;
     }
 };
@@ -388,6 +414,11 @@ io.sockets.on('connection', function (socket) {
     if (twitterStream) {
         socket.emit('twitterStreamOn');
     }
+    
+    socket.on('error', function(e) {
+        console.log(">>> ERROR EN SOCKET <<<");
+        console.log("Got error: " + e.message);
+    });
 
     socket.on('startStreaming', function (data) {
         if (twitterStream === null){
@@ -499,6 +530,26 @@ function applyRejectRocchio(vector, tweet) {
     return vector;
 };
 
+var applyRejectRocchioSuperVector = function (superVector, tweet) {
+    var wordsToDelete = [];
+
+    for (var word in superVector) {
+        if (tweet[word]) {
+            superVector[word] = superVector[word] * originalWordWeight - tweet[word] * rejectedWordWeight;
+            if (superVector[word] <= 0) { wordsToDelete.push(word); }
+        } else {
+            superVector[word] = superVector[word] * originalWordWeight;
+        }
+    }
+
+    for (var wordToDeleteIndex in wordsToDelete) {
+        superVectorDeletedWords[wordsToDelete[wordToDeleteIndex]] = true;
+        delete superVector[wordsToDelete[wordToDeleteIndex]];
+    }
+
+    return superVector;
+};
+
 var applyRocchioRejectedTweet = function(tweetId) {
     tweetDao.getTweet(tweetId, function(err, tweet){
         if (err) { throw err; }
@@ -528,7 +579,7 @@ var applyRocchioRejectedTweet = function(tweetId) {
             }
 
             // Punish words of rejected tweet on super vector
-            superVector = applyRejectRocchio(superVector, tweetVectorTF);
+            superVector = applyRejectRocchioSuperVector(superVector, tweetVectorTF);
             superVector = vectorsUtils.normalizeMapVector(superVector);
             vectorDao.updateSuperVector(superVector);
             superVectorNorma = vectorsUtils.vectorModulus(superVector);
@@ -536,7 +587,7 @@ var applyRocchioRejectedTweet = function(tweetId) {
     });
 };
 
-function applyApproveRocchio(vector, tweet) {
+var applyApproveRocchio = function (vector, tweet) {
     for (var word in tweet) {
         if (vector[word]) {
             vector[word] = vector[word] * originalWordWeight + tweet[word] * approvedWordWeight;
@@ -552,6 +603,25 @@ function applyApproveRocchio(vector, tweet) {
     }
 
     return vector;
+};
+
+var applyApproveRocchioSuperVector = function (superVector, tweet) {
+    for (var word in tweet) {
+        if (superVector[word]) {
+            superVector[word] = superVector[word] * originalWordWeight + tweet[word] * approvedWordWeight;
+        } else {
+            superVector[word] = tweet[word] * approvedWordWeight;
+            superVectorAddedWords[word] = true;
+        }
+    }
+    
+    for (var word in superVector) {
+        if (!tweet[word]) {
+            superVector[word] = superVector[word] * originalWordWeight;
+        }
+    }
+    
+    return superVector;
 };
 
 var applyRocchioApprovedTweet = function(tweetId) {
@@ -598,18 +668,18 @@ var applyRocchioApprovedTweet = function(tweetId) {
             }
 
             // Reward words of approved tweet on super vector
-            superVector = applyApproveRocchio(superVector, tweetVectorTF);
+            superVector = applyApproveRocchioSuperVector(superVector, tweetVectorTF);
             superVector = vectorsUtils.normalizeMapVector(superVector);
             vectorDao.updateSuperVector(superVector);
             superVectorNorma = vectorsUtils.vectorModulus(superVector);
         }
     });
-}
+};
 
 /* ******************************************************************************** */
 
 function updateSearchVectorWords() {
-    console.log("Search vector update process started...");
+    console.log(new Date() + " : Search vector update process started");
 
     // Check if Twitter stream is on and stopped if it's working
     var streamStopped = false;
@@ -619,22 +689,23 @@ function updateSearchVectorWords() {
         streamStopped = true;
     }
 
-    // Check for words in Super Vectors which are not in Search Vector ===> New added words
-    for (var word in superVector) {
+    // Check for words added to the Super Vector ===> add those words to Search Vector
+    for (var word in superVectorAddedWords) {
         if (!searchVector[word]) {
             searchVector[word] = true;
         }
     }
+    // Empty list of super vector added words
+    superVectorAddedWords = {};
 
-    // Check for words in Search Vector which are not in Super Vector ===> Deleted words
-    for (var word in searchVector){
-        // Check if word is single
-        if (word.split(/\s+/).length == 1){
-            if (!superVector[word]) {
-                delete searchVector[word];
-            }
+    // Check for words deleted from Super Vector ===> delete those words from the Search Vector
+    for (var word in superVectorDeletedWords){
+        if (searchVector[word]) {
+            delete searchVector[word];
         }
     }
+    // Empty list of super vector deleted words
+    superVectorDeletedWords = {};
 
     // Update search vector in database
     vectorDao.updateSearchVector(searchVector);
@@ -645,7 +716,7 @@ function updateSearchVectorWords() {
         console.log("Twitter streaming started after updating Search Vector!");
     }
 
-    console.log("Search vector update process finished...");
+    console.log(new Date() + " : Search vector update process finished");
 };
 
 setInterval(function () {

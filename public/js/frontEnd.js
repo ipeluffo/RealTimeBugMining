@@ -92,6 +92,7 @@ $(function () {
     });
     
     /* ******************************************************************************** */
+    
     var updatePagination = function (paginationId, activePage, pagesCount, tweetTableRowBuilder, tweetsSrcURL, tweetsTableId) {
         var $pagination = $("#"+paginationId);
         if ($pagination) {
