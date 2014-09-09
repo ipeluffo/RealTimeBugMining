@@ -689,15 +689,6 @@ function updateSearchVectorWords() {
         streamStopped = true;
     }
 
-    // Check for words added to the Super Vector ===> add those words to Search Vector
-    for (var word in superVectorAddedWords) {
-        if (!searchVector[word]) {
-            searchVector[word] = true;
-        }
-    }
-    // Empty list of super vector added words
-    superVectorAddedWords = {};
-
     // Check for words deleted from Super Vector ===> delete those words from the Search Vector
     for (var word in superVectorDeletedWords){
         if (searchVector[word]) {
@@ -706,6 +697,23 @@ function updateSearchVectorWords() {
     }
     // Empty list of super vector deleted words
     superVectorDeletedWords = {};
+    
+    // Check for words added to the Super Vector ===> add those words to Search Vector
+    var searchVectorKeysCount = Object.keys(searchVector).length;
+    for (var word in superVectorAddedWords) {
+        if (searchVectorKeysCount < 400){
+            if (!searchVector[word]) {
+                searchVectorKeysCount++;
+                searchVector[word] = true;
+                delete superVectorAddedWords[word];
+            }
+        }else{
+            // The Search Vector reach the limit of 400 phrases ===> stop adding words
+            console.log(new Date() + " : The SearchVector reach the limit of 400 phrases");
+            console.log("New words not added: "+util.inspect(superVectorAddedWords, { showHidden: false, depth: 3, colors: true}));
+            break;
+        }
+    }
 
     // Update search vector in database
     vectorDao.updateSearchVector(searchVector);
